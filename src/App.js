@@ -1,35 +1,105 @@
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import {Box, Container, VStack,Button,Input, HStack} from "@chakra-ui/react"
 import Messages from './Components/Messages';
+import {app} from "./Components/firebase"
+import {signOut, onAuthStateChanged, getAuth,GoogleAuthProvider,signInWithPopup} from "firebase/auth"
+import {query, orderBy, onSnapshot, getFirestore,addDoc, collection, serverTimestamp} from "firebase/firestore"
 
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+const loginHandler=()=>{
+  const provider=new GoogleAuthProvider();
+  signInWithPopup(auth,provider)
+}
+
+const logoutHandler=()=>{
+ signOut(auth) 
+}
 function App() {
+  const q=query(collection(db,"Messages"),orderBy("createdAt","asc"))
+  const [user,setuser]=useState(false);
+  const [message,setMessage]=useState("");
+  const [messages,setMessages]=useState([]);
+  const divForScroll=useRef(null)
+
+  useEffect(()=>{
+   const unsubscribe= onAuthStateChanged(auth,(data)=>{
+      setuser(data)
+    });
+
+   const unsubscribeForMessages= onSnapshot(q,(snap)=>{
+      setMessages(
+        snap.docs.map((item)=>{
+          const id = item.id;
+          return {id , ...item.data()}
+
+        })
+        );
+    })
+
+    return ()=>{
+      unsubscribe();
+      unsubscribeForMessages();
+    };
+  });
+
+  const submitHandler= async(e)=>{
+    e.preventDefault();
+
+    try {
+      await addDoc(collection(db,"Messages"),{
+        text:message,
+        uid:user.uid,
+        uri:user.photoURL,
+        createdAt:serverTimestamp(),
+      });
+  setMessage("");
+  divForScroll.current.scrollIntoView({behaviour:"smooth"})
+
+    } catch (error) {
+      alert(error)
+    }
+  }
+
   return (
     <Box bg={"red.50"}>
-      <Container h={"100vh"} bg={'white'}>
+      {
+        user ?(
+        <Container h={"100vh"} bg={'white'}>
         <VStack h={'full'} bg={"telegram.100"} padding={'4 '} overflowY={'auto'} >
-
-          <Button colorScheme='red' w={"full"} >LOgOut</Button>
+          <Button onClick={logoutHandler} colorScheme='red' w={"full"} >LOgOut</Button>
           <VStack h={'full'} w={'full'}>
-            <Messages text="Sample text" />
-            <Messages user="me" text="Sample text" />
-            <Messages user="me" text="Sample text" />
-            <Messages user="me" text="Sample text" />
-            <Messages user="me" text="Sample text" />
-            <Messages text="Sample text" />
-            <Messages text="Sample text" />
-            <Messages text="Sample text" />
+            {
+              messages.map(item =>(
+              <Messages
+              key={item.id} 
+              user={item.url === user.uid ? "me" : "other"} 
+              text={item.text} 
+              uri={item.uri}
+               />
+              ))
+            }
          </VStack>
-         <form style={{width:"100%"}}>
+         <div ref={divForScroll}></div>
+         <form onSubmit={submitHandler} style={{width:"100%"}}>
           <HStack>
-          <Input placeholder='Enter a Message' />
+          <Input value={message} onChange={(e)=>setMessage(e.target.value)} placeholder='Enter a Message' />
           <Button colorScheme='purple' type='Submit' >Send</Button>
           </HStack>
          </form>
         </VStack>
       </Container>
+      ):<VStack justifyContent={"center"} h={"100vh"}>
+        <Button onClick={loginHandler} colorScheme='purple' >Sign in with Google</Button>
+      </VStack>
+      }
     </Box>
-    //  so now 19 min of tutorial complete next is working on fire base 
   );
 }
 
 export default App;
+
+
+// 47 min 
