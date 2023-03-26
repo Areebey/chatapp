@@ -18,13 +18,14 @@ const logoutHandler=()=>{
  signOut(auth) 
 }
 function App() {
-  const q=query(collection(db,"Messages"),orderBy("createdAt","asc"))
+
   const [user,setuser]=useState(false);
   const [message,setMessage]=useState("");
   const [messages,setMessages]=useState([]);
   const divForScroll=useRef(null)
 
   useEffect(()=>{
+    const q=query(collection(db,"Messages"),orderBy("createdAt","asc"))
    const unsubscribe= onAuthStateChanged(auth,(data)=>{
       setuser(data)
     });
@@ -43,19 +44,20 @@ function App() {
       unsubscribe();
       unsubscribeForMessages();
     };
-  });
+  },[]);
 
   const submitHandler= async(e)=>{
     e.preventDefault();
 
     try {
+     setMessage("");
       await addDoc(collection(db,"Messages"),{
         text:message,
         uid:user.uid,
         uri:user.photoURL,
         createdAt:serverTimestamp(),
       });
-  setMessage("");
+  
   divForScroll.current.scrollIntoView({behaviour:"smooth"})
 
     } catch (error) {
@@ -70,19 +72,21 @@ function App() {
         <Container h={"100vh"} bg={'white'}>
         <VStack h={'full'} bg={"telegram.100"} padding={'4 '} overflowY={'auto'} >
           <Button onClick={logoutHandler} colorScheme='red' w={"full"} >LOgOut</Button>
-          <VStack h={'full'} w={'full'}>
+          <VStack h={'full'} w={'full'} overflowY={"auto"} css={{"&::-webkit-scrollbar":{
+            display:"none"
+          }}} >
             {
               messages.map(item =>(
               <Messages
               key={item.id} 
-              user={item.url === user.uid ? "me" : "other"} 
+              user={item.udi === user.uid ? "me" : "other"} 
               text={item.text} 
               uri={item.uri}
                />
               ))
             }
-         </VStack>
          <div ref={divForScroll}></div>
+         </VStack>
          <form onSubmit={submitHandler} style={{width:"100%"}}>
           <HStack>
           <Input value={message} onChange={(e)=>setMessage(e.target.value)} placeholder='Enter a Message' />
@@ -101,5 +105,3 @@ function App() {
 
 export default App;
 
-
-// 47 min 
